@@ -10,6 +10,17 @@
 #include "kernel.h"
 #include "modhead.h"
 
+#include "vector.h"
+
+/* Define this to debug this file */
+//#define DEBUG
+
+
+#ifdef DEBUG
+#define dprintf if (1) printf
+#else
+#define dprintf if (0) printf
+#endif
 
 /***************************************************************************
  * Function:     Mod_Init
@@ -25,8 +36,14 @@
  **************************************************************************/
 _kernel_oserror *Mod_Init(const char *tail, int podule_base, void *pw)
 {
-    printf("Module ReadLine initialised\n");
-    return NULL;
+    _kernel_oserror *err = NULL;
+    dprintf("Module ReadLine initialised\n");
+    err = vector_claims(pw);
+    if (err)
+        goto failed;
+
+failed:
+    return err;
 }
 
 
@@ -44,6 +61,12 @@ _kernel_oserror *Mod_Init(const char *tail, int podule_base, void *pw)
  **************************************************************************/
 _kernel_oserror *Mod_Final(int fatal, int podule_base, void *pw)
 {
-    printf("Module ReadLine dying\n");
-    return NULL;
+    _kernel_oserror *err = NULL;
+    dprintf("Module ReadLine dying\n");
+    err = vector_releases(pw);
+    if (err)
+        goto failed;
+
+failed:
+    return err;
 }

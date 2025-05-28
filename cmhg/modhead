@@ -133,7 +133,7 @@ finalisation-code: Mod_Final
 ; Field names:
 ;   error-capable: Veneer is capable of claiming the vector and returning an
 ;                  error
-;vector-handlers: Vector_Entry/Vector_Handler
+vector-handlers: ReadLineV_Entry/ReadLineV_Handler(error-capable:)
 
 ; VectorTrap veneers are used to provide a simple C environment for SVC and
 ; IRQ modes. You should register the Entry routine as the external interface

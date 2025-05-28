@@ -1,0 +1,54 @@
+
+        AREA    |Asm$$code|, CODE, READONLY
+
+        EXPORT  ReadLineV_SpecialEntry
+        IMPORT  ReadLineV_Entry
+
+OS_WriteS * &1
+OS_NewLine * &3
+
+C_bit   *       (1<<29)
+V_bit   *       (1<<28)
+
+ReadLineV_SpecialEntry
+        STMFD   sp!, {r9, r14}
+
+        ;STMFD   sp!, {r0-r2}
+        ;SWI     OS_WriteS
+        ;= "Entering special entry",0
+        ;ALIGN
+        ;SWI     OS_NewLine
+        ;LDMFD   sp!, {r0-r2}
+
+        MOV     r9, #0
+        BL      ReadLineV_Entry
+
+; r9 = 0 to pass on (ie ignore the call)
+;      1 to claim with C clear
+;      2 to claim with C set
+;      <other> to claim V set and r0 = error pointer from r9
+
+        TEQ     r9, #0
+        LDMEQFD sp!, {r9, pc}       ; pass on
+
+        CMP     r9, #2
+        MOVHI   r0, r9
+        MOVHI   r14, #V_bit         ; error
+
+        TEQ     r9, #1
+        MOVEQ   r14, #0             ; C clear, V clear
+        TEQ     r9, #2
+        MOVEQ   r14, #C_bit         ; C set, V clear
+
+        ;STMFD   sp!, {r0-r2, r14}
+        ;SWI     OS_WriteS
+        ;= "Leaving special entry",0
+        ;ALIGN
+        ;SWI     OS_NewLine
+        ;LDMFD   sp!, {r0-r2, r14}
+
+        MSR     CPSR_f, r14
+
+        LDMFD   sp!, {r9, r14, pc}
+
+        END

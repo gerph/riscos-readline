@@ -1,0 +1,181 @@
+/*******************************************************************
+ * File:        vector
+ * Purpose:     Handling of vectors
+ * Author:      Gerph
+ * Date:        26 Mar 2026
+ ******************************************************************/
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include "kernel.h"
+#include "swis.h"
+
+#include "riscos/Vectors.h"
+
+#include "modhead.h"
+
+#include "readline.h"
+#include "vector.h"
+
+#ifndef __riscos64
+#include "asm.h"
+#endif
+
+
+/* Define this to debug this file */
+// #define DEBUG
+
+
+#ifdef DEBUG
+#define dprintf if (1) printf
+#else
+#define dprintf if (0) printf
+#endif
+
+
+bool force_32bit_interface = false;
+
+/*************************************************** Gerph *********
+ Function:      vector_claims
+ Description:   Claim all the vectors
+ Parameters:    pw = our private word
+ Returns:       pointer to error, or NULL if all ok
+ ******************************************************************/
+_kernel_oserror *vector_claims(void *pw)
+{
+    _kernel_oserror *err;
+
+#ifdef __riscos64
+    force_32bit_interface = true;
+#else
+    /* Check if we're a 26bit OS, so can use the 26bit interface */
+    {
+        uint32_t value;
+        err = _swix(OS_PlatformFeatures, _IN(0)|_OUT(0), 0, &value);
+        if (err)
+            force_32bit_interface = false; /* No OS_PlatformFeatures => must be 26bit OS */
+        else
+            force_32bit_interface = (value & (1<<6)) ? true : false;
+    }
+#endif
+
+#ifdef __riscos64
+    err = _swix(OS_Claim, _INR(0,2), ReadLineV, ReadLineV_Entry, pw);
+#else
+    err = _swix(OS_Claim, _INR(0,2), ReadLineV, ReadLineV_SpecialEntry, pw);
+#endif
+    return err;
+}
+
+
+/*************************************************** Gerph *********
+ Function:      vector_releases
+ Description:   Release all the vectors
+ Parameters:    pw = our private word
+ Returns:       pointer to error, or NULL if all ok
+ ******************************************************************/
+_kernel_oserror *vector_releases(void *pw)
+{
+    _kernel_oserror *err;
+#ifdef __riscos64
+    err = _swix(OS_Release, _INR(0,2), ReadLineV, ReadLineV_Entry, pw);
+#else
+    err = _swix(OS_Release, _INR(0,2), ReadLineV, ReadLineV_SpecialEntry, pw);
+#endif
+    return err;
+}
+
+
+
+/***************************************************************************
+ * Function:     ReadLineV
+ * Description:  Vector handler function
+ * Parameters:   regs  = pointer to register block on entry
+ *               pw = private word for module
+ * On exit:      Update r to alter return values
+ *               Return VECTOR_PASS to claim (return via stack)
+ *               Return VECTOR_CLAIM to pass on (return via r14)
+ **************************************************************************/
+int ReadLineV_Handler(_kernel_swi_regs *regs, void *pw)
+{
+    /*
+        In    r0 -> in 32bit: buffer for characters
+                    in 26bit with r1 bit 31 clear: buffer for characters + flags
+                    in 26bit with r1 bit 31 set: buffer for characters
+                    Flags as r4 bits 30-31.
+              r1 = max length of line (excluding carriage return)
+                   if bit 31 set, r4 contains flags
+              r2 = lowest character to put into buffer
+              r3 = highest character to put into buffer
+              r4 = b0-7   : echo character
+                   b8-29  : reserved, must be 0
+                   b30    : use password character in b0-7
+                   b31    : don't reflect characters not entering buffer
+        Out   r1 = length of line (excluding carriage return)
+        RO32: C=0 => line terminated by return (CR or LF)
+              C=1 => line terminated by ESCAPE
+        RO64: r0 = 0 => line terminated by return (CR or LF)
+              r0 = 1 => line terminated by ESCAPE
+     */
+
+    readline_t rl;
+    uint32_t flags;
+
+    if (force_32bit_interface || (regs->r[1] & (1u<<31)))
+    {
+        rl.buffer = (char*)regs->r[0];
+        rl.max_length = regs->r[1] & ~(1u<<31); /* Always clear bit 31 */
+        flags = regs->r[4];
+    }
+    else
+    {
+        /* 26 bit interface */
+        rl.buffer = (char*)(regs->r[0] &~(63u<<26));
+        rl.max_length = regs->r[1] & ~(1u<<31); /* Always clear bit 31 */
+        flags = (regs->r[0] & (63u<<26)) | (regs->r[4] & 255);
+    }
+    rl.low_char = regs->r[2];
+    rl.high_char = regs->r[3];
+
+    if (flags & (1u<<30))
+        rl.echo_char = flags & 0xFF;
+    else
+        rl.echo_char = -1;
+
+    if (flags & (1u<<31))
+        rl.hide_unbuffered = true;
+    else
+        rl.hide_unbuffered = false;
+
+    readline(&rl);
+
+    regs->r[1] = rl.read;
+
+#ifdef __riscos64
+    if (rl.err)
+    {
+        return VECTOR_ERROR(rl.err);
+    }
+    regs->r[0] = rl.escape ? 1 : 0;
+    return VECTOR_CLAIM;
+#else
+    /* The 26bit/32bit version returns through a special entry point, so we need
+     * to set flags appropriately.
+     */
+    if (rl.err)
+    {
+        regs->r[9] = (int)rl.err;
+    }
+    else
+    {
+        if (rl.escape)
+            regs->r[9] = ReadLineV_ClaimCSet;
+        else
+            regs->r[9] = ReadLineV_ClaimCClear;
+    }
+    return VECTOR_PASSON;
+#endif
+}
+
+

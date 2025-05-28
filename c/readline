@@ -126,6 +126,8 @@ done:
     {
         rl->escape = true;
     }
+    dprintf("Exiting with string '%.*s', escape=%i, err=%s\n",
+            rl->read, rl->buffer, rl->escape, rl->err ? rl->err->errmess : "none");
 }
 
 

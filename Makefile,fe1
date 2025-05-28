@@ -36,12 +36,20 @@ CDEFINES   =
 
 # Objects to build, using the format o.<name> (will be varied for build type)
 OBJS       = o.modhead \
-			 o.module
+			 o.module \
+			 o.readline \
+			 o.vector \
+			 o.os
+
+ifneq (${BUILD64},1)
+OBJS += o.asm
+endif
 
 include CModule
 
 # Additional dependencies
 $(OZDIR).module: h.modhead
+$(OZDIR).vector: h.modhead
 
 cleantarget:
            ${RM} h.modhead

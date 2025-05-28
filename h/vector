@@ -1,0 +1,30 @@
+/*******************************************************************
+ * File:        vector
+ * Purpose:     Handling of vectors
+ * Author:      Gerph
+ * Date:        26 Mar 2026
+ ******************************************************************/
+
+#ifndef VECTOR_H
+#define VECTOR_H
+
+#include "kernel.h"
+
+
+/*************************************************** Gerph *********
+ Function:      vector_claims
+ Description:   Claim all the vectors
+ Parameters:    pw = our private word
+ Returns:       pointer to error, or NULL if all ok
+ ******************************************************************/
+_kernel_oserror *vector_claims(void *pw);
+
+/*************************************************** Gerph *********
+ Function:      vector_releases
+ Description:   Release all the vectors
+ Parameters:    pw = our private word
+ Returns:       pointer to error, or NULL if all ok
+ ******************************************************************/
+_kernel_oserror *vector_releases(void *pw);
+
+#endif
