@@ -1,0 +1,69 @@
+/*******************************************************************
+ * File:        test
+ * Purpose:     Test that ReadLine is working sanely (manual checks)
+ * Author:      Gerph
+ * Date:        28 May 2025
+ ******************************************************************/
+
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "readline.h"
+
+int main(int argc, char *argv[])
+{
+    char buffer[256];
+    readline_t rl = {
+        NULL,
+        sizeof(buffer),
+        -1, /* echo char */
+        0, 255, /* low/high */
+        true,
+    };
+    int i;
+
+    signal(SIGINT, SIG_IGN);
+
+    rl.buffer = buffer;
+
+    /* Parameters */
+    for (i=1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "short")==0)
+        {
+            rl.max_length = 5;
+            printf("Using 5 character max\n");
+        }
+        else if (strcmp(argv[i], "numbers")==0)
+        {
+            rl.low_char = '0';
+            rl.high_char = '9';
+            printf("Accept numbers only\n");
+        }
+        else if (strcmp(argv[i], "password")==0)
+        {
+            rl.echo_char = '*';
+            printf("Password\n");
+        }
+        else if (strcmp(argv[i], "hidden")==0)
+        {
+            rl.echo_char = 0;
+            printf("Hidden\n");
+        }
+    }
+
+    printf("Readline: ");
+    readline(&rl);
+    printf("\n\nResult:\n");
+    printf("  Read:     %i\n", rl.read);
+    printf("  Line:     >");
+    for (i=0; i < rl.read; i++)
+    {
+        printf("%c", rl.buffer[i]);
+    }
+    printf("<  terminator: %i\n", rl.buffer[rl.read]);
+    printf("  Escape:   %s\n", rl.escape ? "yes" : "no");
+    printf("  Error:    %s\n", rl.err ? rl.err->errmess : "-");
+    return 0;
+}

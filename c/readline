@@ -1,0 +1,131 @@
+/*******************************************************************
+ * File:        readline
+ * Purpose:     Read line implementation
+ * Author:      Gerph
+ * Date:        28 May 2025
+ ******************************************************************/
+
+#include <stdbool.h>
+#include <stdio.h>
+
+#include "os.h"
+#include "readline.h"
+
+
+/* Define this to debug this file */
+//#define DEBUG
+
+
+#ifdef DEBUG
+#define dprintf if (1) printf
+#else
+#define dprintf if (0) printf
+#endif
+
+#define VDU_OUTPUT_ENABLED() (vdu_wrchdest() & WrchDest_VDU)
+
+
+/*************************************************** Gerph *********
+ Function:      readline
+ Description:   Read a line of input with semantics like OS_ReadLine
+ Parameters:    rl-> the readline_t structure for input and output
+ Returns:       none
+ ******************************************************************/
+void readline(readline_t *rl)
+{
+    rl->escape = false;
+    rl->err = NULL;
+    rl->read = 0;
+
+    vdu_reset_page_lines();
+
+    while (1)
+    {
+        int c = os_readc(&rl->err);
+        if (c==-1)
+        {
+            rl->escape = (rl->err == NULL) ? true : false;
+            break;
+        }
+        //dprintf("Got character %i\n", c);
+
+        if (VDU_OUTPUT_ENABLED() && vdu_queuelen())
+        {
+            dprintf("[VDU Queue]"); /* Actually this'll corrupt the queue */
+            /* There are items in the queue, so we just print without buffering */
+            os_writec(c);
+            continue;
+        }
+        switch (c)
+        {
+            case 127:
+            case 8:
+                /* Delete or backspace */
+                if (rl->read > 0)
+                {
+                    rl->read -= 1;
+                    os_writec(127);
+                }
+                continue;
+
+            case 'U' - 64:
+                /* Ctrl U */
+                for (; rl->read; rl->read--)
+                {
+                    os_writec(127);
+                }
+                continue;
+
+            case 13:
+            case 10:
+                /* Return/Newline */
+                rl->buffer[rl->read] = 13; /* We always store CR terminator */
+                os_newline();
+                goto done;
+        }
+
+        /* The original implementation beeped even if the character would not enter
+         * the buffer - that seems wrong, so I'm reversing it.
+         */
+
+        /* This is a character to handle */
+        if (c < rl->low_char || c > rl->high_char)
+        {
+            /* This is not a character that is entering the buffer */
+            if (rl->hide_unbuffered)
+                continue;
+        }
+        else
+        {
+            if (rl->read >= rl->max_length)
+            {
+                /* Too large, so we're not buffering */
+                dprintf("[beep]");
+                beep();
+                continue;
+            }
+
+            /* The character entered the buffer */
+            rl->buffer[rl->read++] = c;
+        }
+
+        /* Character entered buffer (or hide_unbuffered is unset) */
+        if (rl->echo_char != -1)
+        {
+            os_writec(rl->echo_char);
+        }
+        else
+        {
+            //dprintf("OS_WriteC %i\n", c);
+            os_writec(c);
+        }
+    }
+
+done:
+    if (!rl->escape && !rl->err && os_readescapestate())
+    {
+        rl->escape = true;
+    }
+}
+
+

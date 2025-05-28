@@ -1,0 +1,40 @@
+/*******************************************************************
+ * File:        readline
+ * Purpose:     Read line implementation
+ * Author:      Gerph
+ * Date:        28 May 2025
+ ******************************************************************/
+
+#ifndef READLINE_H
+#define READLINE_H
+
+#include <stdbool.h>
+
+#include "swis.h"
+
+
+typedef struct readline_s {
+    /* Input parameters */
+    char *buffer;
+    int max_length;
+    int echo_char; /* character, or -1 to not use an echo character */
+    int low_char, high_char;
+    bool hide_unbuffered;
+
+    /* Output parameters */
+    bool escape;
+    _kernel_oserror *err;
+    int read;
+} readline_t;
+
+
+/*************************************************** Gerph *********
+ Function:      readline
+ Description:   Read a line of input with semantics like OS_ReadLine
+ Parameters:    rl-> the readline_t structure for input and output
+ Returns:       none
+ ******************************************************************/
+void readline(readline_t *rl);
+
+#endif
+

@@ -1,0 +1,80 @@
+/*******************************************************************
+ * File:        os
+ * Purpose:     OS interfaces
+ * Author:      Gerph
+ * Date:        28 May 2025
+ ******************************************************************/
+
+#ifndef OS_H
+#define OS_H
+
+#include "swis.h"
+
+
+#define WrchDest_VDU                (1<<1)
+
+/*************************************************** Gerph *********
+ Function:      os_readc
+ Description:   Read a character from the input, or -1 if escape
+ Parameters:    errp-> where to store the error
+ Returns:       character read, or -1 if error (if errp is NULL, escape)
+ ******************************************************************/
+int os_readc(_kernel_oserror **errp);
+
+/*************************************************** Gerph *********
+ Function:      os_writec
+ Description:   Write the character to the output stream
+ Parameters:    c = character to write
+ Returns:       1 if ok, 0 if failed
+ ******************************************************************/
+int os_writec(int c);
+
+/*************************************************** Gerph *********
+ Function:      os_newline
+ Description:   Write a newline, whatever that means
+ Parameters:    none
+ Returns:       1 if ok, 0 if failed
+ ******************************************************************/
+int os_newline(void);
+
+/*************************************************** Gerph *********
+ Function:      beep
+ Description:   Make a sound
+ Parameters:    none
+ Returns:       none
+ ******************************************************************/
+void beep(void);
+
+/*************************************************** Gerph *********
+ Function:      vdu_queuelen
+ Description:   Read the length of the VDU queue
+ Parameters:    none
+ Returns:       number of bytes in the queue
+ ******************************************************************/
+int vdu_queuelen(void);
+
+/*************************************************** Gerph *********
+ Function:      vdu_wrchdest
+ Description:   Read the Wrch destination
+ Parameters:    none
+ Returns:       destination flags
+ ******************************************************************/
+int vdu_wrchdest(void);
+
+/*************************************************** Gerph *********
+ Function:      vdu_reset_page_lines
+ Description:   Reset the counter of lines before shift is needed
+ Parameters:    none
+ Returns:       none
+ ******************************************************************/
+void vdu_reset_page_lines(void);
+
+/*************************************************** Gerph *********
+ Function:      os_readescapestate
+ Description:   Check whether the escape flag is set
+ Parameters:    none
+ Returns:       1 if set, 0 if clear
+ ******************************************************************/
+int os_readescapestate(void);
+
+#endif

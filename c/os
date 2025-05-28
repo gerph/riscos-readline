@@ -1,0 +1,163 @@
+/*******************************************************************
+ * File:        os
+ * Purpose:     OS interfaces
+ * Author:      Gerph
+ * Date:        28 May 2025
+ ******************************************************************/
+
+#include <stdlib.h>
+#include "swis.h"
+
+#include "os.h"
+
+
+/*************************************************** Gerph *********
+ Function:      os_readc
+ Description:   Read a character from the input, or -1 if escape
+ Parameters:    errp-> where to store the error
+ Returns:       character read, or -1 if error (if errp is NULL, escape)
+ ******************************************************************/
+int os_readc(_kernel_oserror **errp)
+{
+    _kernel_oserror *err;
+    int escape = 0;
+    int c;
+    if (errp)
+        *errp = NULL;
+
+#ifdef __riscos64
+    err = _swix(OS_ReadC, _OUTR(0, 1), &c, &escape);
+#else
+    {
+        int flags;
+        err = _swix(OS_ReadC, _OUT(0)|_OUT(_FLAGS), &c, &flags);
+        if (flags & _C)
+            escape = 1;
+    }
+#endif
+    if (err)
+    {
+        if (err->errnum == 17)
+        {
+            return -1; /* Escape: return -1, err = NULL */
+        }
+        *errp = err; /* Error: return -1, err = error pointer */
+        return -1;
+    }
+    if (escape)
+    {
+        return -1; /* Escape: return -1, err = NULL */
+    }
+    return c;
+}
+
+/*************************************************** Gerph *********
+ Function:      os_writec
+ Description:   Write the character to the output stream
+ Parameters:    c = character to write
+ Returns:       1 if ok, 0 if failed
+ ******************************************************************/
+int os_writec(int c)
+{
+    _kernel_oserror *err;
+    err = _swix(OS_WriteC, _IN(0), c);
+    return err ? 0 : 1;
+}
+
+/*************************************************** Gerph *********
+ Function:      os_newline
+ Description:   Write a newline, whatever that means
+ Parameters:    none
+ Returns:       1 if ok, 0 if failed
+ ******************************************************************/
+int os_newline(void)
+{
+    _kernel_oserror *err;
+    err = _swix(OS_NewLine, 0);
+    return err ? 0 : 1;
+}
+
+/*************************************************** Gerph *********
+ Function:      beep
+ Description:   Make a sound
+ Parameters:    none
+ Returns:       none
+ ******************************************************************/
+void beep(void)
+{
+    _swix(OS_WriteC, _IN(0), 7);
+}
+
+#define OSByte_ReadWriteQueueItems (0xDA)
+#define OSByte_ReadWritePageLines  (211)
+#define OSByte_ReadWriteWrchDest   (0xEC)
+
+#define VDUDest_VDU                (1<<1)
+
+/*************************************************** Gerph *********
+ Function:      vdu_queuelen
+ Description:   Read the length of the VDU queue
+ Parameters:    none
+ Returns:       number of bytes in the queue
+ ******************************************************************/
+int vdu_queuelen(void)
+{
+    _kernel_oserror *err;
+    int items = 0;
+    err = _swix(OS_Byte, _INR(0, 2)|_OUT(1), OSByte_ReadWriteQueueItems, 0, 255, &items);
+    if (err)
+        items = 0;
+    return items;
+}
+
+/*************************************************** Gerph *********
+ Function:      vdu_wrchdest
+ Description:   Read the Wrch destination
+ Parameters:    none
+ Returns:       destination flags
+ ******************************************************************/
+int vdu_wrchdest(void)
+{
+    _kernel_oserror *err;
+    int flags = 0;
+    err = _swix(OS_Byte, _INR(0, 2)|_OUT(1), OSByte_ReadWriteWrchDest, 0, 255, &flags);
+    if (err)
+        flags = 0;
+    return flags;
+}
+
+/*************************************************** Gerph *********
+ Function:      vdu_reset_page_lines
+ Description:   Reset the counter of lines before shift is needed
+ Parameters:    none
+ Returns:       none
+ ******************************************************************/
+void vdu_reset_page_lines(void)
+{
+    _swix(OS_Byte, _INR(0,2), OSByte_ReadWritePageLines, 0, 0);
+}
+
+
+/*************************************************** Gerph *********
+ Function:      os_readescapestate
+ Description:   Check whether the escape flag is set
+ Parameters:    none
+ Returns:       1 if set, 0 if clear
+ ******************************************************************/
+int os_readescapestate(void)
+{
+    _kernel_oserror *err;
+#ifdef __riscos64
+    int state = 0;
+    err = _swix(OS_ReadEscapeState, _OUT(0), &state);
+    if (state)
+        return 1;
+#else
+    int flags = 0;
+    err = _swix(OS_ReadEscapeState, _OUT(_FLAGS), &flags);
+    if (flags & _C)
+        return 1;
+#endif
+    return err ? 1 : 0;
+}
+
