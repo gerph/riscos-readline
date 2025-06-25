@@ -12,6 +12,38 @@
 
 
 /*************************************************** Gerph *********
+ Function:      os_claim
+ Description:   Claim a vector
+ Parameters:    vector = the vector number
+                func-> the entry point to call
+                pw = the private word
+ Returns:       pointer to error, or NULL if claimed ok
+ ******************************************************************/
+_kernel_oserror *os_claim(int vector, void (*func)(void), void *pw)
+{
+    _kernel_oserror *err;
+    err = _swix(OS_Claim, _INR(0,2),
+                          vector, func, pw);
+    return err;
+}
+
+/*************************************************** Gerph *********
+ Function:      os_release
+ Description:   Release a vector
+ Parameters:    vector = the vector number
+                func-> the entry point to call
+                pw = the private word
+ Returns:       pointer to error, or NULL if claimed ok
+ ******************************************************************/
+_kernel_oserror *os_release(int vector, void (*func)(void), void *pw)
+{
+    _kernel_oserror *err;
+    err = _swix(OS_Release, _INR(0,2),
+                          vector, func, pw);
+    return err;
+}
+
+/*************************************************** Gerph *********
  Function:      os_readc
  Description:   Read a character from the input, or -1 if escape
  Parameters:    errp-> where to store the error
@@ -91,6 +123,7 @@ void beep(void)
 #define OSByte_ReadWriteQueueItems (0xDA)
 #define OSByte_ReadWritePageLines  (211)
 #define OSByte_ReadWriteWrchDest   (0xEC)
+#define OSByte_ReadVDUStatus       (0x75)
 
 #define VDUDest_VDU                (1<<1)
 
@@ -124,6 +157,22 @@ int vdu_wrchdest(void)
     if (err)
         flags = 0;
     return flags;
+}
+
+/*************************************************** Gerph *********
+ Function:      vdu_status
+ Description:   Read the VDU status
+ Parameters:    none
+ Returns:       VDU status
+ ******************************************************************/
+int vdu_status(void)
+{
+    _kernel_oserror *err;
+    int status = 0;
+    err = _swix(OS_Byte, _IN(0)|_OUT(1), OSByte_ReadVDUStatus, &status);
+    if (err)
+        status = 0;
+    return status;
 }
 
 /*************************************************** Gerph *********

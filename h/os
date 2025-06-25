@@ -13,6 +13,27 @@
 
 #define WrchDest_VDU                (1<<1)
 
+
+/*************************************************** Gerph *********
+ Function:      os_claim
+ Description:   Claim a vector
+ Parameters:    vector = the vector number
+                func-> the entry point to call
+                pw = the private word
+ Returns:       pointer to error, or NULL if claimed ok
+ ******************************************************************/
+_kernel_oserror *os_claim(int vector, void (*func)(void), void *pw);
+
+/*************************************************** Gerph *********
+ Function:      os_release
+ Description:   Release a vector
+ Parameters:    vector = the vector number
+                func-> the entry point to call
+                pw = the private word
+ Returns:       pointer to error, or NULL if claimed ok
+ ******************************************************************/
+_kernel_oserror *os_release(int vector, void (*func)(void), void *pw);
+
 /*************************************************** Gerph *********
  Function:      os_readc
  Description:   Read a character from the input, or -1 if escape
@@ -60,6 +81,14 @@ int vdu_queuelen(void);
  Returns:       destination flags
  ******************************************************************/
 int vdu_wrchdest(void);
+
+/*************************************************** Gerph *********
+ Function:      vdu_status
+ Description:   Read the VDU status
+ Parameters:    none
+ Returns:       VDU status
+ ******************************************************************/
+int vdu_status(void);
 
 /*************************************************** Gerph *********
  Function:      vdu_reset_page_lines

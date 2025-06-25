@@ -17,6 +17,7 @@
 
 #include "readline.h"
 #include "vector.h"
+#include "os.h"
 
 #ifndef __riscos64
 #include "asm.h"
@@ -61,9 +62,9 @@ _kernel_oserror *vector_claims(void *pw)
 #endif
 
 #ifdef __riscos64
-    err = _swix(OS_Claim, _INR(0,2), ReadLineV, ReadLineV_Entry, pw);
+    err = os_claim(ReadLineV, ReadLineV_Entry, pw);
 #else
-    err = _swix(OS_Claim, _INR(0,2), ReadLineV, ReadLineV_SpecialEntry, pw);
+    err = os_claim(ReadLineV, ReadLineV_SpecialEntry, pw);
 #endif
     return err;
 }
@@ -79,9 +80,9 @@ _kernel_oserror *vector_releases(void *pw)
 {
     _kernel_oserror *err;
 #ifdef __riscos64
-    err = _swix(OS_Release, _INR(0,2), ReadLineV, ReadLineV_Entry, pw);
+    err = os_release(ReadLineV, ReadLineV_Entry, pw);
 #else
-    err = _swix(OS_Release, _INR(0,2), ReadLineV, ReadLineV_SpecialEntry, pw);
+    err = os_release(ReadLineV, ReadLineV_SpecialEntry, pw);
 #endif
     return err;
 }
