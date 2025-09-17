@@ -1,16 +1,23 @@
 /*******************************************************************
  * File:        module
  * Purpose:     ReadLine module interface
- * Author:      YOUR NAME
+ * Author:      Gerph
  ******************************************************************/
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "kernel.h"
+#include "swis.h"
+
+#include "riscos/Vectors.h"
+
 #include "modhead.h"
 
 #include "vector.h"
+#include "os.h"
+#include "osswis.h"
 
 /* Define this to debug this file */
 //#define DEBUG
@@ -21,6 +28,10 @@
 #else
 #define dprintf if (0) printf
 #endif
+
+uint32_t registered = 0;
+void register_osswis(void *pw, bool reg);
+
 
 /***************************************************************************
  * Function:     Mod_Init
@@ -68,5 +79,171 @@ _kernel_oserror *Mod_Final(int fatal, int podule_base, void *pw)
         goto failed;
 
 failed:
+    return err;
+}
+
+
+/*************************************************** Gerph *********
+ Function:      register_osswis
+ Description:   Register all the OS_* SWIs that we provide (or deregister)
+ Parameters:    pw = the module private word
+                reg = true if we're registering, false if we deregister
+ Returns:       none
+ ******************************************************************/
+void register_osswis(void *pw, bool reg)
+{
+    _kernel_oserror *err;
+    int n = 0;
+#define REGISTER(swi, entry) \
+        if (reg) \
+        { \
+            err = osswi_claim(true, swi, entry, pw); \
+            if (!err) \
+            { \
+                registered |= (1u<<n); \
+            } \
+        } \
+        else \
+        { \
+            if (registered & (1u<<n)) \
+            { \
+                osswi_claim(false, swi, entry, pw); \
+                registered &= ~(1u<<n); \
+            } \
+        } \
+        n++;
+
+    REGISTER(OS_ReadLine, Entry_ReadLine);
+    REGISTER(OS_ReadLine32, Entry_ReadLine32);
+}
+
+
+/*
+    In    r0 -> r1 bit 31 clear: buffer for characters + flags
+                  b30    : use password character in b0-7
+                  b31    : don't reflect characters not entering buffer
+                r1 bit 31 set: buffer for characters
+          r1 = max length of line (excluding carriage return)
+               if bit 31 set, r4 contains flags
+          r2 = lowest character to put into buffer
+          r3 = highest character to put into buffer
+          r4 = b0-7   : echo character
+               b8-29  : reserved, must be 0
+               If R1 bit 31 set:
+                  b30    : use password character in b0-7
+                  b31    : don't reflect characters not entering buffer
+    Out   r1 = length of line (excluding carriage return)
+          32bit: C=0 => line terminated by return (CR or LF)
+                 C=1 => line terminated by ESCAPE
+          64bit: x0=0 => line terminated by return (CR or LF)
+                 x0=1 => line terminated by ESCAPE
+ */
+_kernel_oserror *OSSWI_ReadLine(_kernel_swi_regs *r, void *pw)
+{
+    _kernel_oserror *err;
+#if __CONFIG==32 || __CONFIG==64
+    /* This is a build which understands the 32bit extensions to plain OS_ReadLine. */
+    uint32_t len_flags = (uint32_t)r->r[1];
+    if (len_flags & (1u<<31))
+    {
+        /* The caller knows about extended interface, so pass straight through */
+    }
+    else
+    {
+        /* May be extended or not */
+        bool running_26bit;
+#ifdef __riscos64
+        running_26bit = false; /* Never the old interface on 64bit systems */
+#else
+        running_26bit = false; /* FIXME: Need to read from running system */
+#endif
+        if (!running_26bit)
+        {
+            uint32_t buffer_flags = ((uint32_t)r->r[0]) & (63u<<26);
+            r->r[4] = r->r[4] & 255;
+            r->r[4] = r->r[4] | buffer_flags;
+            r->r[0] = r->r[0] & ~(63u<<26);
+        }
+    }
+#endif
+#ifdef __riscos64
+    /* 64bit OS */
+    err = os_callavector(ReadLineV, r);
+    /* We never use the C flag in 64bit */
+#else
+    /* 26/32bit OS */
+    err = os_callavector(ReadLineV, r);
+    /* FIXME: Need to pass on the C flag */
+#endif
+    return err;
+}
+
+
+
+/*
+    In    r0 -> buffer for characters
+          r1 = max length of line (excluding carriage return)
+               bit 31 ignored
+          r2 = lowest character to put into buffer
+          r3 = highest character to put into buffer
+          r4 = b0-7   : echo character
+               b8-29  : reserved, must be 0
+               b30    : use password character in b0-7
+               b31    : don't reflect characters not entering buffer
+    Out   r1 = length of line (excluding carriage return)
+          32bit: C=0 => line terminated by return (CR or LF)
+                 C=1 => line terminated by ESCAPE
+          64bit: x0=0 => line terminated by return (CR or LF)
+                 x0=1 => line terminated by ESCAPE
+ */
+_kernel_oserror *OSSWI_ReadLine32(_kernel_swi_regs *r, void *pw)
+{
+    _kernel_oserror *err;
+    bool running_26bit;
+#ifdef __riscos64
+    running_26bit = false; /* Never the old interface on 64bit systems */
+#else
+    running_26bit = false; /* FIXME: Need to read from running system */
+#endif
+
+    if (running_26bit)
+    {
+        /* We need to munge down to 26bit interface */
+        uint32_t buffer = (uint32_t)r->r[0];
+        uint32_t len_flags = (uint32_t)r->r[1];
+        uint32_t flags = ((uint32_t)r->r[4]);
+        if (buffer & (63u<<26))
+        {
+            len_flags |= (1u<<31); /* Wide address, so flag r4 as valid */
+        }
+        else
+        {
+            uint32_t noecho = flags & ~255;
+            uint32_t lowflags = noecho & ~(63u<<26);
+            if (lowflags)
+            {
+                len_flags |= (1u<<31); /* other flags are set, so r4 is valid */
+            }
+            else
+            {
+                uint32_t highflags = flags & (63u<<26);
+                buffer |= highflags;
+                flags = flags & 255;
+            }
+        }
+        r->r[0] = buffer;
+        r->r[1] = len_flags;
+        r->r[4] = flags;
+    }
+
+#ifdef __riscos64
+    /* 64bit OS */
+    err = os_callavector(ReadLineV, r);
+    /* We never use the C flag in 64bit */
+#else
+    /* 26/32bit OS */
+    err = os_callavector(ReadLineV, r);
+    /* FIXME: Need to pass on the C flag */
+#endif
     return err;
 }

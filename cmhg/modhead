@@ -117,7 +117,9 @@ finalisation-code: Mod_Final
 ;   private-word: <register> Private word register
 ;   carry-capable:           Veneer is capable of handling returning of the
 ;                            carry flag
-;generic-veneers: Veneer_Entry/Veneer_Handler
+generic-veneers: \
+        Entry_ReadLine/OSSWI_ReadLine,
+        Entry_ReadLine32/OSSWI_ReadLine32
 
 ; IRQ veneers are the old name for vector-handlers. Use vector-handlers in
 ; preference to irq-handlers.

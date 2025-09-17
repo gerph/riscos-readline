@@ -35,6 +35,15 @@ _kernel_oserror *os_claim(int vector, void (*func)(void), void *pw);
 _kernel_oserror *os_release(int vector, void (*func)(void), void *pw);
 
 /*************************************************** Gerph *********
+ Function:      os_callavector
+ Description:   Call a vector
+ Parameters:    vector = the vector number
+                r-> the registers to pass
+ Returns:       pointer to error, or NULL if claimed ok
+ ******************************************************************/
+_kernel_oserror *os_callavector(int vector, _kernel_swi_regs *r);
+
+/*************************************************** Gerph *********
  Function:      os_readc
  Description:   Read a character from the input, or -1 if escape
  Parameters:    errp-> where to store the error

@@ -39,6 +39,7 @@ OBJS       = o.modhead \
 			 o.module \
 			 o.readline \
 			 o.vector \
+			 o.osswis \
 			 o.os
 
 ifneq (${BUILD64},1)
