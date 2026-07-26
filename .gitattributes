@@ -2,3 +2,4 @@
 VersionNum gitlab-language=c linguist-language=c
 c/* gitlab-language=c linguist-language=c
 h/* gitlab-language=c linguist-language=c
+s/* gitlab-language=armasm linguist-language=assembly
